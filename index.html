@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>QR Attendance Scanner</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .status-bar { margin: 10px 0; padding: 8px; background: #eee; }
+    .status-success { background: #c8f7c5; }
+    .status-error { background: #f7c5c5; }
+    table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    .success-flash { background: #d4edda; animation: flash 1s ease-out; }
+    @keyframes flash { from { background: #a3e6a3; } to { background: #fff; } }
+    #videoContainer { position: relative; display: none; max-width: 500px; }
+    #camera { width: 100%; border: 2px solid #333; }
+    #scanningIndicator {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: red;
+      animation: scanline 2s linear infinite;
+      display: none;
+    }
+    @keyframes scanline {
+      0% { top: 0; }
+      100% { top: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <h1>QR Attendance System</h1>
+
+  <label>Course Code: <input type="text" id="coursecode"></label>
+  <label>Date: <input type="date" id="date"></label>
+  <button id="clearButton">Clear</button>
+  <button id="exportButton">Export</button>
+  <span>Students Scanned: <span id="studentCount">0</span></span>
+  <div id="statusBar" class="status-bar">Ready</div>
+
+  <!-- Camera container -->
+  <div id="videoContainer">
+    <video id="camera"></video>
+    <div id="scanningIndicator"></div>
+  </div>
+  <button id="startCamera">Start Camera</button>
+  <button id="stopCamera" style="display:none;">Stop Camera</button>
+
+  <!-- Attendance Table -->
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Matric Number</th>
+        <th>Department</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody id="attendanceBody"></tbody>
+  </table>
+
+  <button id="installButton" style="display:none;">Install App</button>
+
+  <!-- QR Scanner Library -->
+  <script type="module">
+    import QrScanner from "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js";
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // Elements
+      const attendanceBody = document.getElementById('attendanceBody');
+      const statusBar = document.getElementById('statusBar');
+      const coursecodeInput = document.getElementById('coursecode');
+      const dateInput = document.getElementById('date');
+      const clearButton = document.getElementById('clearButton');
+      const exportButton = document.getElementById('exportButton');
+      const studentCount = document.getElementById('studentCount');
+      const video = document.getElementById('camera');
+      const startCameraBtn = document.getElementById('startCamera');
+      const stopCameraBtn = document.getElementById('stopCamera');
+      const videoContainer = document.getElementById('videoContainer');
+      const scanningIndicator = document.getElementById('scanningIndicator');
+
+      let attendanceData = [];
+      let qrScanner = null;
+
+      // Set default date
+      const today = new Date();
+      dateInput.value = today.toISOString().split('T')[0];
+
+      // Status helper
+      function updateStatus(msg, type='default') {
+        statusBar.textContent = msg;
+        statusBar.className = 'status-bar';
+        if (type === 'success') statusBar.classList.add('status-success');
+        if (type === 'error') statusBar.classList.add('status-error');
+      }
+
+      // Process QR result
+      function processQRData(qrData) {
+        try {
+          const parts = qrData.split(',');
+          if (parts.length < 3) {
+            updateStatus('Invalid QR format. Expected: Name,MatricNumber,Department', 'error');
+            return;
+          }
+          const name = parts[0].trim();
+          const matric = parts[1].trim();
+          const department = parts[2].trim();
+
+          if (!name || !matric || !department) {
+            updateStatus('Incomplete QR data', 'error');
+            return;
+          }
+
+          const isDuplicate = attendanceData.some(item =>
+            item.matric === matric && item.date === dateInput.value
+          );
+          if (isDuplicate) {
+            updateStatus(`${name} already scanned today`, 'error');
+            return;
+          }
+
+          const now = new Date();
+          const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+          attendanceData.push({ name, matric, department, time: timeString, date: dateInput.value });
+
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${name}</td><td>${matric}</td><td>${department}</td><td>${timeString}</td>`;
+          row.classList.add('success-flash');
+          attendanceBody.appendChild(row);
+
+          updateStatus(`✅ Scanned: ${name}`, 'success');
+          updateStudentCount();
+
+          localStorage.setItem('attendanceRecords', JSON.stringify(attendanceData));
+        } catch (err) {
+          console.error("Process error:", err);
+          updateStatus(`Error: ${err.message}`, 'error');
+        }
+      }
+
+      function updateStudentCount() {
+        studentCount.textContent = attendanceData.length;
+      }
+
+      // Export CSV
+      function exportToCSV() {
+        if (!coursecodeInput.value.trim()) {
+          alert('Please enter a course code');
+          return;
+        }
+        if (attendanceData.length === 0) {
+          alert('No attendance data to export');
+          return;
+        }
+        const filename = `${coursecodeInput.value.trim()}_${dateInput.value}.csv`;
+
+        function escapeCSV(text) {
+          if (typeof text !== 'string') text = String(text);
+          if (/^[=@+-]/.test(text)) return "'" + text.replace(/"/g, '""');
+          return '"' + text.replace(/"/g, '""') + '"';
+        }
+
+        let csvContent = 'Name,Matric Number,Department,Time,Date\n';
+        attendanceData.forEach(stu => {
+          csvContent += [stu.name, stu.matric, stu.department, stu.time, stu.date]
+            .map(escapeCSV).join(',') + '\n';
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        updateStatus(`Attendance exported to ${filename}`, 'success');
+      }
+
+      // Clear
+      clearButton.addEventListener('click', () => {
+        if (confirm('Clear all data?')) {
+          attendanceData = [];
+          attendanceBody.innerHTML = '';
+          updateStudentCount();
+          updateStatus('All data cleared', 'default');
+          localStorage.removeItem('attendanceRecords');
+        }
+      });
+
+      exportButton.addEventListener('click', exportToCSV);
+
+      // Camera controls
+      async function startCamera() {
+        try {
+          updateStatus('Starting camera...');
+          startCameraBtn.disabled = true;
+          videoContainer.style.display = 'block';
+          scanningIndicator.style.display = 'block';
+          startCameraBtn.style.display = 'none';
+          stopCameraBtn.style.display = 'inline-block';
+
+          qrScanner = new QrScanner(video, result => {
+            console.log("QR result:", result);
+            processQRData(result);
+          }, { returnDetailedScanResult: true });
+
+          await qrScanner.start();
+          updateStatus('Camera ready - Point at QR code', 'success');
+        } catch (err) {
+          console.error("Camera error:", err);
+          updateStatus('Camera failed to start', 'error');
+          startCameraBtn.disabled = false;
+        }
+      }
+
+      function stopCamera() {
+        if (qrScanner) {
+          qrScanner.stop();
+          qrScanner.destroy();
+          qrScanner = null;
+        }
+        videoContainer.style.display = 'none';
+        scanningIndicator.style.display = 'none';
+        stopCameraBtn.style.display = 'none';
+        startCameraBtn.style.display = 'inline-block';
+        startCameraBtn.disabled = false;
+        updateStatus('Camera stopped');
+      }
+
+      startCameraBtn.addEventListener('click', startCamera);
+      stopCameraBtn.addEventListener('click', stopCamera);
+
+      // Restore saved data
+      try {
+        const saved = localStorage.getItem('attendanceRecords');
+        if (saved) {
+          attendanceData = JSON.parse(saved);
+          attendanceBody.innerHTML = '';
+          attendanceData.forEach(stu => {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${stu.name}</td><td>${stu.matric}</td><td>${stu.department}</td><td>${stu.time}</td>`;
+            attendanceBody.appendChild(row);
+          });
+          updateStudentCount();
+        }
+      } catch (err) {
+        console.error("Load error:", err);
+      }
+
+      // Install prompt
+      let deferredPrompt;
+      const installButton = document.getElementById('installButton');
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        installButton.style.display = 'block';
+      });
+      installButton.addEventListener('click', () => {
+        installButton.style.display = 'none';
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(choice => {
+          deferredPrompt = null;
+        });
+      });
+
+      // Stop camera on unload
+      window.addEventListener('beforeunload', stopCamera);
+    });
+
+    // Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(console.error);
+      });
+    }
+  </script>
+</body>
+</html>
