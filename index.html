@@ -1092,408 +1092,277 @@
     </div>
 
     <script>
-        let currentStep = 1;
-        let selectedMentor = null;
-        let formData = {};
-        let isVerified = false;
+    let currentStep = 1;
+    let selectedMentor = null;
+    let isVerified = false;
 
-        // Show modal on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            showVerificationModal();
-            showStep(1);
-        });
+    // Dummy test members
+    const dummyMembers = [
+        {
+            email: 'adebulejohnfav@gmail.com',
+            first_name: 'Adebule',
+            last_name: 'John',
+            date_of_birth: '1998-04-15',
+            gender: 'Male',
+            phone: '08012345678',
+            state: 'Lagos'
+        },
+        {
+            email: 'janedoe@example.com',
+            first_name: 'Jane',
+            last_name: 'Doe',
+            date_of_birth: '2000-07-20',
+            gender: 'Female',
+            phone: '08098765432',
+            state: 'Abuja'
+        }
+    ];
 
-        function showVerificationModal() {
-            const modal = document.getElementById('verificationModal');
-            modal.classList.remove('hidden');
+    // Dummy mentors
+    const dummyMentors = {
+        1: [
+            { mentor_id: 1, name: 'Mentor A', mentee_count: 1 },
+            { mentor_id: 2, name: 'Mentor B', mentee_count: 0 }
+        ],
+        2: [
+            { mentor_id: 3, name: 'Mentor C', mentee_count: 2 }
+        ]
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        showVerificationModal();
+        showStep(1);
+    });
+
+    function showVerificationModal() {
+        document.getElementById('verificationModal').classList.remove('hidden');
+    }
+
+    function hideVerificationModal() {
+        document.getElementById('verificationModal').classList.add('hidden');
+        document.getElementById('registrationCard').classList.add('enabled');
+        document.getElementById('verificationBadge').style.display = 'block';
+    }
+
+    // Lookup membership using dummy data
+    document.getElementById('lookupBtn').addEventListener('click', function() {
+        const value = document.getElementById('lookupInput').value.trim();
+        const messageEl = document.getElementById('lookupMessage');
+        const lookupBtn = document.getElementById('lookupBtn');
+
+        if (!value) {
+            messageEl.textContent = 'Please enter an email or membership ID';
+            messageEl.classList.add('show');
+            return;
         }
 
-        function hideVerificationModal() {
-            const modal = document.getElementById('verificationModal');
-            modal.classList.add('hidden');
-            
-            // Enable the registration form
-            const registrationCard = document.getElementById('registrationCard');
-            registrationCard.classList.add('enabled');
-            
-            // Show verification badge
-            const verificationBadge = document.getElementById('verificationBadge');
-            verificationBadge.style.display = 'block';
-        }
+        lookupBtn.classList.add('loading');
+        lookupBtn.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="animation: spin 1s linear infinite;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Verifying...';
 
-        // Lookup button click
-        document.getElementById('lookupBtn').addEventListener('click', function() {
-            const value = document.getElementById('lookupInput').value.trim();
-            const messageEl = document.getElementById('lookupMessage');
-            const lookupBtn = document.getElementById('lookupBtn');
+        setTimeout(() => {
+            const member = dummyMembers.find(m => m.email.toLowerCase() === value.toLowerCase());
 
-            if (!value) {
-                messageEl.textContent = 'Please enter an email or membership ID';
+            if (member) {
+                document.getElementById('firstName').value = member.first_name;
+                document.getElementById('lastName').value = member.last_name;
+                document.getElementById('email').value = member.email;
+                document.getElementById('dateOfBirth').value = member.date_of_birth;
+                document.getElementById('gender').value = member.gender;
+                document.getElementById('phone').value = member.phone;
+                document.getElementById('state').value = member.state;
+
+                document.getElementById('firstName').setAttribute('readonly', true);
+                document.getElementById('lastName').setAttribute('readonly', true);
+                document.getElementById('email').setAttribute('readonly', true);
+
+                isVerified = true;
+                hideVerificationModal();
+                showAlert('Membership verified successfully!', 'success');
+            } else {
+                messageEl.textContent = 'No member found with this email or membership ID';
                 messageEl.classList.add('show');
-                return;
             }
 
-            // Show loading state
-            lookupBtn.classList.add('loading');
-            lookupBtn.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="animation: spin 1s linear infinite;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Verifying...';
+            lookupBtn.classList.remove('loading');
+            lookupBtn.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>Verify Membership';
+        }, 800);
+    });
 
-            fetch('fetch_member.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ identifier: value })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    const member = data.member;
+    document.getElementById('lookupInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') document.getElementById('lookupBtn').click();
+    });
 
-                    // Fill verified fields
-                    document.getElementById('firstName').value = member.first_name || '';
-                    document.getElementById('lastName').value = member.last_name || '';
-                    document.getElementById('email').value = member.email || value;
+    function showAlert(message, type = 'danger') {
+        const alertContainer = document.getElementById('alertContainer');
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        alertContainer.innerHTML = `<div class="alert ${alertClass} show">${message}</div>`;
+        setTimeout(() => alertContainer.innerHTML = '', 5000);
+    }
 
-                    // Make verified fields readonly
-                    document.getElementById('firstName').setAttribute('readonly', true);
-                    document.getElementById('lastName').setAttribute('readonly', true);
-                    document.getElementById('email').setAttribute('readonly', true);
-
-                    isVerified = true;
-                    hideVerificationModal();
-                    showAlert('Membership verified successfully!', 'success');
-                } else {
-                    messageEl.textContent = data.message || 'No member found with this email or membership ID';
-                    messageEl.classList.add('show');
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                messageEl.textContent = 'Error verifying membership. Please try again.';
-                messageEl.classList.add('show');
-            })
-            .finally(() => {
-                // Reset button state
-                lookupBtn.classList.remove('loading');
-                lookupBtn.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>Verify Membership';
-            });
-        });
-
-        // Allow Enter key to trigger lookup
-        document.getElementById('lookupInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                document.getElementById('lookupBtn').click();
-            }
-        });
-
-        function showAlert(message, type = 'danger') {
-            const alertContainer = document.getElementById('alertContainer');
-            const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-            
-            alertContainer.innerHTML = `
-                <div class="alert ${alertClass} show">
-                    ${message}
-                </div>
-            `;
-
-            setTimeout(() => {
-                alertContainer.innerHTML = '';
-            }, 5000);
+    function validateStep(step) {
+        if (!isVerified) {
+            showAlert('Please verify your membership first.');
+            return false;
         }
-
-        function validateStep(step) {
-            if (!isVerified) {
-                showAlert('Please verify your membership first.');
-                return false;
-            }
-
-            let isValid = true;
-            const requiredFields = getRequiredFieldsForStep(step);
-
-            requiredFields.forEach(fieldId => {
-                const field = document.getElementById(fieldId);
-                const errorElement = document.getElementById(`${fieldId}-error`);
-                
-                if (!field.value.trim()) {
+        let isValid = true;
+        const requiredFields = getRequiredFieldsForStep(step);
+        requiredFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            const errorElement = document.getElementById(`${fieldId}-error`);
+            if (!field.value.trim()) {
+                field.classList.add('error');
+                errorElement.textContent = 'This field is required';
+                errorElement.style.display = 'block';
+                isValid = false;
+            } else {
+                field.classList.remove('error');
+                errorElement.style.display = 'none';
+                if (fieldId === 'email' && !isValidEmail(field.value)) {
                     field.classList.add('error');
-                    errorElement.textContent = 'This field is required';
+                    errorElement.textContent = 'Please enter a valid email address';
                     errorElement.style.display = 'block';
                     isValid = false;
-                } else {
-                    field.classList.remove('error');
-                    errorElement.style.display = 'none';
-                    
-                    // Additional validation
-                    if (fieldId === 'email' && !isValidEmail(field.value)) {
+                }
+                if (fieldId === 'confirmPassword') {
+                    const password = document.getElementById('password').value;
+                    if (field.value !== password) {
                         field.classList.add('error');
-                        errorElement.textContent = 'Please enter a valid email address';
+                        errorElement.textContent = 'Passwords do not match';
                         errorElement.style.display = 'block';
                         isValid = false;
                     }
-
-                    // Password confirmation validation
-                    if (fieldId === 'confirmPassword') {
-                        const password = document.getElementById('password').value;
-                        if (field.value !== password) {
-                            field.classList.add('error');
-                            errorElement.textContent = 'Passwords do not match';
-                            errorElement.style.display = 'block';
-                            isValid = false;
-                        }
-                    }
-                }
-            });
-
-            // Special validation for step 3 (mentor selection)
-            if (step === 3 && !selectedMentor) {
-                document.getElementById('mentor-error').textContent = 'Please select a mentor';
-                document.getElementById('mentor-error').style.display = 'block';
-                isValid = false;
-            } else if (step === 3) {
-                document.getElementById('mentor-error').style.display = 'none';
-            }
-
-            return isValid;
-        }
-
-        function getRequiredFieldsForStep(step) {
-            const fieldMap = {
-                1: ['firstName', 'lastName', 'dateOfBirth', 'gender', 'password', 'confirmPassword'],
-                2: ['email', 'phone', 'state'],
-                3: ['discipline']
-            };
-            return fieldMap[step] || [];
-        }
-
-        function isValidEmail(email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return emailRegex.test(email);
-        }
-
-        function updateProgressBar(step) {
-            // Update step indicators
-            for (let i = 1; i <= 4; i++) {
-                const stepElement = document.getElementById(`step${i}`);
-                const lineElement = document.getElementById(`line${i}`);
-                
-                if (i < step) {
-                    stepElement.classList.remove('active');
-                    stepElement.classList.add('completed');
-                    if (lineElement) lineElement.classList.add('completed');
-                } else if (i === step) {
-                    stepElement.classList.remove('completed');
-                    stepElement.classList.add('active');
-                } else {
-                    stepElement.classList.remove('active', 'completed');
-                    if (lineElement) lineElement.classList.remove('completed');
                 }
             }
+        });
 
-            // Update step labels
-            document.querySelectorAll('.step-label').forEach((label, index) => {
-                if (index + 1 === step) {
-                    label.classList.add('active');
-                } else {
-                    label.classList.remove('active');
-                }
-            });
-        }
-
-        function showStep(step) {
-            // Hide all steps
-            document.querySelectorAll('.form-step').forEach(stepElement => {
-                stepElement.classList.remove('active');
-            });
-
-            // Show current step
-            document.getElementById(`step-${step}`).classList.add('active');
-            
-            // Update progress bar
-            updateProgressBar(step);
-            
-            currentStep = step;
-
-            // Update review data if on step 4
-            if (step === 4) {
-                updateReviewData();
-            }
-        }
-
-        function nextStep(step) {
-            if (validateStep(step)) {
-                showStep(step + 1);
-            }
-        }
-
-        function prevStep(step) {
-            showStep(step - 1);
-        }
-
-        async function loadMentors() {
-            const disciplineSelect = document.getElementById('discipline');
-            const mentorSection = document.getElementById('mentorSection');
-            const mentorsList = document.getElementById('mentorsList');
-
-            if (!disciplineSelect.value) {
-                mentorSection.style.display = 'none';
-                return;
-            }
-
-            try {
-                const response = await fetch('process_registration.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `action=get_mentors&discipline_id=${disciplineSelect.value}`
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    mentorsList.innerHTML = '';
-                    
-                    if (data.mentors.length > 0) {
-                        data.mentors.forEach(mentor => {
-                            const mentorCard = document.createElement('div');
-                            mentorCard.className = 'mentor-card';
-                            mentorCard.onclick = () => selectMentor(mentor.mentor_id, mentor.name, mentorCard);
-                            
-                            mentorCard.innerHTML = `
-                                <div class="mentor-info">
-                                    <div class="mentor-name">${mentor.name}</div>
-                                    <div class="mentor-count">${mentor.mentee_count}/2 mentees</div>
-                                </div>
-                            `;
-                            
-                            mentorsList.appendChild(mentorCard);
-                        });
-                        
-                        mentorSection.style.display = 'block';
-                    } else {
-                        mentorsList.innerHTML = '<p style="color: var(--gray-600); text-align: center; padding: 20px;">No mentors available for this discipline.</p>';
-                        mentorSection.style.display = 'block';
-                    }
-                } else {
-                    showAlert(data.message || 'Error loading mentors');
-                }
-            } catch (error) {
-                showAlert('Network error. Please try again.');
-                console.error('Error:', error);
-            }
-        }
-
-        function selectMentor(mentorId, mentorName, cardElement) {
-            // Remove selection from all cards
-            document.querySelectorAll('.mentor-card').forEach(card => {
-                card.classList.remove('selected');
-            });
-
-            // Select current card
-            cardElement.classList.add('selected');
-            selectedMentor = {
-                id: mentorId,
-                name: mentorName
-            };
-
-            // Clear any error
+        if (step === 3 && !selectedMentor) {
+            document.getElementById('mentor-error').textContent = 'Please select a mentor';
+            document.getElementById('mentor-error').style.display = 'block';
+            isValid = false;
+        } else if (step === 3) {
             document.getElementById('mentor-error').style.display = 'none';
         }
 
-        function updateReviewData() {
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            const dateOfBirth = document.getElementById('dateOfBirth').value;
-            const gender = document.getElementById('gender').value;
-            const email = document.getElementById('email').value;
-            const phone = document.getElementById('phone').value;
-            const state = document.getElementById('state').value;
-            const disciplineSelect = document.getElementById('discipline');
+        return isValid;
+    }
 
-            document.getElementById('review-name').textContent = `${firstName} ${lastName}`;
-            document.getElementById('review-dob').textContent = dateOfBirth;
-            document.getElementById('review-gender').textContent = gender;
-            document.getElementById('review-email').textContent = email;
-            document.getElementById('review-phone').textContent = phone;
-            document.getElementById('review-state').textContent = state;
-            document.getElementById('review-discipline').textContent = disciplineSelect.options[disciplineSelect.selectedIndex].text;
-            document.getElementById('review-mentor').textContent = selectedMentor ? selectedMentor.name : 'No mentor selected';
-        }
+    function getRequiredFieldsForStep(step) {
+        const fieldMap = {
+            1: ['firstName', 'lastName', 'dateOfBirth', 'gender', 'password', 'confirmPassword'],
+            2: ['email', 'phone', 'state'],
+            3: ['discipline']
+        };
+        return fieldMap[step] || [];
+    }
 
-        async function submitForm() {
-            if (!isVerified) {
-                showAlert('Please verify your membership before submitting.');
-                return;
-            }
+    function isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
 
-            if (!selectedMentor) {
-                showAlert('Please select a mentor before submitting.');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('action', 'register');
-            formData.append('firstName', document.getElementById('firstName').value);
-            formData.append('lastName', document.getElementById('lastName').value);
-            formData.append('dateOfBirth', document.getElementById('dateOfBirth').value);
-            formData.append('gender', document.getElementById('gender').value);
-            formData.append('email', document.getElementById('email').value);
-            formData.append('phone', document.getElementById('phone').value);
-            formData.append('state', document.getElementById('state').value);
-            formData.append('discipline_id', document.getElementById('discipline').value);
-            formData.append('mentor_id', selectedMentor.id);
-            formData.append('password', document.getElementById('password').value);
-
-            // Add profile photo if selected
-            const profilePhoto = document.getElementById('profilePhoto').files[0];
-            if (profilePhoto) {
-                formData.append('profilePhoto', profilePhoto);
-            }
-
-            try {
-                const response = await fetch('process_registration.php', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    showStep(5); // Show success step
-                } else {
-                    showAlert(data.message || 'Registration failed. Please try again.');
-                }
-            } catch (error) {
-                showAlert('Network error. Please try again.');
-                console.error('Error:', error);
+    function updateProgressBar(step) {
+        for (let i = 1; i <= 4; i++) {
+            const stepEl = document.getElementById(`step${i}`);
+            const lineEl = document.getElementById(`line${i}`);
+            if (i < step) {
+                stepEl.classList.remove('active');
+                stepEl.classList.add('completed');
+                if (lineEl) lineEl.classList.add('completed');
+            } else if (i === step) {
+                stepEl.classList.remove('completed');
+                stepEl.classList.add('active');
+            } else {
+                stepEl.classList.remove('active', 'completed');
+                if (lineEl) lineEl.classList.remove('completed');
             }
         }
+        document.querySelectorAll('.step-label').forEach((label, idx) => {
+            label.classList.toggle('active', idx + 1 === step);
+        });
+    }
 
-        function previewImage(event) {
-            const preview = document.getElementById('imagePreview');
-            preview.innerHTML = '';
-            const file = event.target.files[0];
-            if (file && file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = document.createElement('img');
-                    img.src = e.target.result;
-                    img.style.maxWidth = '150px';
-                    img.style.borderRadius = '12px';
-                    img.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
-                    preview.appendChild(img);
-                };
-                reader.readAsDataURL(file);
-            }
+    function showStep(step) {
+        document.querySelectorAll('.form-step').forEach(stepEl => stepEl.classList.remove('active'));
+        document.getElementById(`step-${step}`).classList.add('active');
+        updateProgressBar(step);
+        currentStep = step;
+        if (step === 4) updateReviewData();
+    }
+
+    function nextStep(step) { if (validateStep(step)) showStep(step + 1); }
+    function prevStep(step) { showStep(step - 1); }
+
+    // Load dummy mentors
+    async function loadMentors() {
+        const disciplineSelect = document.getElementById('discipline');
+        const mentorSection = document.getElementById('mentorSection');
+        const mentorsList = document.getElementById('mentorsList');
+
+        if (!disciplineSelect.value) { mentorSection.style.display = 'none'; return; }
+
+        const mentors = dummyMentors[disciplineSelect.value] || [];
+        mentorsList.innerHTML = '';
+        if (mentors.length > 0) {
+            mentors.forEach(m => {
+                const card = document.createElement('div');
+                card.className = 'mentor-card';
+                card.onclick = () => selectMentor(m.mentor_id, m.name, card);
+                card.innerHTML = `<div class="mentor-info"><div class="mentor-name">${m.name}</div><div class="mentor-count">${m.mentee_count}/2 mentees</div></div>`;
+                mentorsList.appendChild(card);
+            });
+        } else {
+            mentorsList.innerHTML = '<p style="color: var(--gray-600); text-align: center; padding: 20px;">No mentors available for this discipline.</p>';
         }
+        mentorSection.style.display = 'block';
+    }
 
-        // Add CSS animation for spinning loader
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes spin {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-            }
-        `;
-        document.head.appendChild(style);
-    </script>
+    function selectMentor(id, name, card) {
+        document.querySelectorAll('.mentor-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        selectedMentor = { id, name };
+        document.getElementById('mentor-error').style.display = 'none';
+    }
+
+    function updateReviewData() {
+        document.getElementById('review-name').textContent = `${document.getElementById('firstName').value} ${document.getElementById('lastName').value}`;
+        document.getElementById('review-dob').textContent = document.getElementById('dateOfBirth').value;
+        document.getElementById('review-gender').textContent = document.getElementById('gender').value;
+        document.getElementById('review-email').textContent = document.getElementById('email').value;
+        document.getElementById('review-phone').textContent = document.getElementById('phone').value;
+        document.getElementById('review-state').textContent = document.getElementById('state').value;
+        const discSelect = document.getElementById('discipline');
+        document.getElementById('review-discipline').textContent = discSelect.options[discSelect.selectedIndex].text;
+        document.getElementById('review-mentor').textContent = selectedMentor ? selectedMentor.name : 'No mentor selected';
+    }
+
+    async function submitForm() {
+        if (!isVerified) return showAlert('Please verify your membership before submitting.');
+        if (!selectedMentor) return showAlert('Please select a mentor before submitting.');
+        showStep(5); // simulate success step
+        showAlert('Registration submitted successfully!', 'success');
+    }
+
+    function previewImage(event) {
+        const preview = document.getElementById('imagePreview');
+        preview.innerHTML = '';
+        const file = event.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.style.maxWidth = '150px';
+                img.style.borderRadius = '12px';
+                img.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
+                preview.appendChild(img);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // Loader CSS
+    const style = document.createElement('style');
+    style.textContent = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
+    document.head.appendChild(style);
+</script>
 </body>
 </html>
