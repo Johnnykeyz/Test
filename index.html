@@ -1,45 +1,139 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>ZXing Test</title>
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mentee Registration</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-  <h2>ZXing Barcode Scanner Test</h2>
-  <video id="preview" style="width:300px; border:1px solid #ccc;" autoplay playsinline></video>
-  <p id="output"></p>
 
-  <script>
-    const codeReader = new ZXing.BrowserMultiFormatReader();
-    const videoElement = document.getElementById('preview');
-    const output = document.getElementById('output');
+<div class="container mt-5">
+  <h2>Mentee Registration</h2>
 
-    async function initScanner() {
-      try {
-        // ✅ use the instance method, not the class
-        const devices = await codeReader.listVideoInputDevices();
-        if (devices.length === 0) throw new Error("No cameras found");
+  <!-- Button to trigger modal -->
+  <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#lookupModal">
+    Verify Membership
+  </button>
 
-        // Prefer back camera if available
-        const deviceId = devices.length > 1 ? devices[devices.length - 1].deviceId : devices[0].deviceId;
+  <!-- Registration Form -->
+  <form id="menteeForm" action="submit_registration.php" method="POST">
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <label for="first_name" class="form-label">First Name</label>
+        <input type="text" class="form-control" name="first_name" id="first_name" placeholder="Enter First Name">
+      </div>
+      <div class="col-md-6">
+        <label for="last_name" class="form-label">Last Name</label>
+        <input type="text" class="form-control" name="last_name" id="last_name" placeholder="Enter Last Name">
+      </div>
+    </div>
 
-        codeReader.decodeFromVideoDevice(deviceId, videoElement, (result, err) => {
-          if (result) {
-            output.textContent = "✅ Scanned: " + result.getText();
-          }
-          if (err && !(err instanceof ZXing.NotFoundException)) {
-            console.error("Decode error:", err);
-          }
-        });
-      } catch (e) {
-        console.error("Init error:", e);
-        output.textContent = "Camera init failed: " + e.message;
-      }
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <label for="email" class="form-label">Email</label>
+        <input type="email" class="form-control" name="email" id="email" placeholder="Enter Email">
+      </div>
+      <div class="col-md-6">
+        <label for="phone" class="form-label">Phone Number</label>
+        <input type="text" class="form-control" name="phone" id="phone" placeholder="Enter Phone Number">
+      </div>
+    </div>
+
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <label for="department" class="form-label">Department</label>
+        <select class="form-select" name="department" id="department">
+          <option value="">Select Department</option>
+          <option value="CS">Computer Science</option>
+          <option value="EE">Electrical Engineering</option>
+          <option value="ME">Mechanical Engineering</option>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label for="membership_id" class="form-label">Membership ID</label>
+        <input type="text" class="form-control" name="membership_id" id="membership_id" placeholder="Enter Membership ID">
+      </div>
+    </div>
+
+    <button type="submit" id="registerBtn" class="btn btn-success" disabled>Register</button>
+  </form>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="lookupModal" tabindex="-1" aria-labelledby="lookupModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="lookupModalLabel">Enter Email or Membership ID</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" class="form-control" id="lookupInput" placeholder="Email or Membership ID">
+        <div class="mt-2">
+          <button id="lookupBtn" class="btn btn-success">Lookup</button>
+        </div>
+        <div id="lookupMessage" class="text-danger mt-2"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let isVerified = false;
+
+// Lookup button
+document.getElementById('lookupBtn').addEventListener('click', function () {
+    const value = document.getElementById('lookupInput').value.trim();
+    const messageEl = document.getElementById('lookupMessage');
+
+    if (!value) {
+        messageEl.textContent = 'Please enter an email or membership ID';
+        return;
     }
 
-    initScanner();
-  </script>
+    fetch('fetch_member.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: value })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            const member = data.member;
+            ['first_name','last_name','email','membership_id'].forEach(id => {
+                document.getElementById(id).value = member[id] || value;
+                document.getElementById(id).readOnly = true;
+            });
+            isVerified = true;
+            document.getElementById('registerBtn').disabled = false; // enable submit
+            const modalEl = document.getElementById('lookupModal');
+            bootstrap.Modal.getInstance(modalEl).hide();
+            messageEl.textContent = '';
+        } else {
+            messageEl.textContent = data.message;
+            isVerified = false;
+            document.getElementById('registerBtn').disabled = true; // keep disabled
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        messageEl.textContent = 'Error fetching data';
+        isVerified = false;
+        document.getElementById('registerBtn').disabled = true;
+    });
+});
+
+// Form submit validation
+document.getElementById('menteeForm').addEventListener('submit', function(e) {
+    if (!isVerified) {
+        e.preventDefault();
+        alert("You must verify your membership before submitting the form!");
+        return false;
+    }
+});
+</script>
+
 </body>
 </html>
-
