@@ -5,16 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mentee Registration</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  /* Optional: highlight readonly fields */
+  input[readonly] {
+    background-color: #e9ecef;
+  }
+</style>
 </head>
 <body>
 
 <div class="container mt-5">
   <h2>Mentee Registration</h2>
-
-  <!-- Button to trigger modal -->
-  <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#lookupModal">
-    Verify Membership
-  </button>
 
   <!-- Registration Form -->
   <form id="menteeForm" action="submit_registration.php" method="POST">
@@ -61,12 +62,11 @@
 </div>
 
 <!-- Modal -->
-<div class="modal fade" id="lookupModal" tabindex="-1" aria-labelledby="lookupModalLabel" aria-hidden="true">
+<div class="modal fade" id="lookupModal" tabindex="-1" aria-labelledby="lookupModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="lookupModalLabel">Enter Email or Membership ID</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <input type="text" class="form-control" id="lookupInput" placeholder="Email or Membership ID">
@@ -83,7 +83,14 @@
 <script>
 let isVerified = false;
 
-// Lookup button
+// Show modal on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const modalEl = document.getElementById('lookupModal');
+    const modal = new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
+    modal.show();
+});
+
+// Lookup button click
 document.getElementById('lookupBtn').addEventListener('click', function () {
     const value = document.getElementById('lookupInput').value.trim();
     const messageEl = document.getElementById('lookupMessage');
@@ -102,19 +109,23 @@ document.getElementById('lookupBtn').addEventListener('click', function () {
     .then(data => {
         if (data.success) {
             const member = data.member;
+
+            // Fill and readonly verified fields
             ['first_name','last_name','email','membership_id'].forEach(id => {
                 document.getElementById(id).value = member[id] || value;
                 document.getElementById(id).readOnly = true;
             });
+
             isVerified = true;
             document.getElementById('registerBtn').disabled = false; // enable submit
-            const modalEl = document.getElementById('lookupModal');
-            bootstrap.Modal.getInstance(modalEl).hide();
+
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('lookupModal')).hide();
             messageEl.textContent = '';
         } else {
             messageEl.textContent = data.message;
             isVerified = false;
-            document.getElementById('registerBtn').disabled = true; // keep disabled
+            document.getElementById('registerBtn').disabled = true;
         }
     })
     .catch(err => {
